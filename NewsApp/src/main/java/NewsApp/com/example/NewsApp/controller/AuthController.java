@@ -133,5 +133,38 @@ public class AuthController {
         return ResponseEntity.ok(new ApiResponseDto<>(true, "Action updated successfully", response));
     }
 
+    // ====================== Comment Routes ======================
+
+    @PostMapping("/news/comment")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ApiResponseDto<CommentResponseDto>> addComment(@RequestBody CommentRequestDto dto) {
+        String email = (String) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        CommentResponseDto response = authService.addComment(dto, email);
+        return ResponseEntity.ok(new ApiResponseDto<>(true, "Comment added successfully", response));
+    }
+
+    @GetMapping("/news/{newsId}/comments")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ApiResponseDto<List<CommentResponseDto>>> getComments(@PathVariable String newsId) {
+        List<CommentResponseDto> comments = authService.getCommentsByNews(newsId);
+        return ResponseEntity.ok(new ApiResponseDto<>(true, "Fetched all comments", comments));
+    }
+
+    @DeleteMapping("/news/comment/delete/{id}")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ApiResponseDto<?>> deleteComment(@PathVariable String id) {
+        String email = (String) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        authService.deleteComment(id, email);
+        return ResponseEntity.ok(new ApiResponseDto<>(true, "Comment deleted successfully", null));
+    }
+
+    @PutMapping("/news/comment/update")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ApiResponseDto<CommentResponseDto>> updateComment(@RequestBody CommentUpdateRequestDto dto) {
+        String email = (String) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        CommentResponseDto updated = authService.updateComment(dto, email);
+        return ResponseEntity.ok(new ApiResponseDto<>(true, "Comment updated successfully", updated));
+    }
+
 }
 

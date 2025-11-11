@@ -24,6 +24,8 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
     private final LikeDislikeRepository likeDislikeRepository;
+    private final NewsCommentRepository newsCommentRepository;
+
 
     // ====================== Auth Routes ======================
 
@@ -154,7 +156,6 @@ public class AuthService {
         newsRepository.delete(news);
     }
 
-
     public List<NewsResponseDto> getAllNews(String userEmail) {
         // ✅ Get current logged-in user (for showing their like/dislike)
         User currentUser = userRepository.findByEmail(userEmail)
@@ -229,6 +230,87 @@ public class AuthService {
 
         return new LikeDislikeResponse(news.getId(), likeCount, dislikeCount, userAction);
     }
+
+    // ====================== Comments Feature ======================
+
+    public CommentResponseDto addComment(CommentRequestDto dto, String userEmail) {
+        User user = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new CustomApiException(HttpStatus.NOT_FOUND, "User not found"));
+
+        News news = newsRepository.findById(dto.getNewsId())
+                .orElseThrow(() -> new CustomApiException(HttpStatus.NOT_FOUND, "News not found"));
+
+        NewsComment comment = new NewsComment();
+        comment.setNewsId(news.getId());
+        comment.setUserId(user.getId());
+        comment.setContent(dto.getContent());
+        comment.setCreatedAt(Instant.now());
+        newsCommentRepository.save(comment);
+
+        CommentResponseDto response = new CommentResponseDto();
+        response.setId(comment.getId());
+        response.setNewsId(comment.getNewsId());
+        response.setUserName(user.getUsername());
+        response.setContent(comment.getContent());
+        response.setCreatedAt(comment.getCreatedAt());
+
+        return response;
+    }
+
+    public List<CommentResponseDto> getCommentsByNews(String newsId) {
+        List<NewsComment> comments = newsCommentRepository.findByNewsId(newsId);
+
+        return comments.stream().map(comment -> {
+            CommentResponseDto dto = new CommentResponseDto();
+            dto.setId(comment.getId());
+            dto.setNewsId(comment.getNewsId());
+            dto.setContent(comment.getContent());
+            dto.setCreatedAt(comment.getCreatedAt());
+
+            userRepository.findById(comment.getUserId()).ifPresent(u -> dto.setUserName(u.getUsername()));
+            return dto;
+        }).collect(Collectors.toList());
+    }
+
+    public void deleteComment(String commentId, String userEmail) {
+        User user = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new CustomApiException(HttpStatus.NOT_FOUND, "User not found"));
+
+        NewsComment comment = newsCommentRepository.findById(commentId)
+                .orElseThrow(() -> new CustomApiException(HttpStatus.NOT_FOUND, "Comment not found"));
+
+        if (!comment.getUserId().equals(user.getId())) {
+            throw new CustomApiException(HttpStatus.FORBIDDEN, "You can delete only your own comment");
+        }
+
+        newsCommentRepository.delete(comment);
+    }
+
+    public CommentResponseDto updateComment(CommentUpdateRequestDto dto, String userEmail) {
+        User user = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new CustomApiException(HttpStatus.NOT_FOUND, "User not found"));
+
+        NewsComment comment = newsCommentRepository.findById(dto.getCommentId())
+                .orElseThrow(() -> new CustomApiException(HttpStatus.NOT_FOUND, "Comment not found"));
+
+        if (!comment.getUserId().equals(user.getId())) {
+            throw new CustomApiException(HttpStatus.FORBIDDEN, "You can update only your own comment");
+        }
+
+        comment.setContent(dto.getContent());
+        newsCommentRepository.save(comment);
+
+        CommentResponseDto response = new CommentResponseDto();
+        response.setId(comment.getId());
+        response.setNewsId(comment.getNewsId());
+        response.setUserName(user.getUsername());
+        response.setContent(comment.getContent());
+        response.setCreatedAt(comment.getCreatedAt());
+
+        return response;
+    }
+
+
 }
 
 
