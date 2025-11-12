@@ -92,6 +92,6 @@ Built with **React (Vite + Tailwind CSS)** on frontend and **Spring Boot + Mongo
 ## 🤝 Connect With Me
 
 💻 **GitHub:** [@dibesh7381](https://github.com/dibesh7381)  
-📧 **Email:** [dibesh7381@gmail.com](dibeshranjan6@gmail.com)   
+📧 **Email:** [dibeshranjan6@gmail.com](mailto:dibeshranjan6@gmail.com)  
 
 ---
