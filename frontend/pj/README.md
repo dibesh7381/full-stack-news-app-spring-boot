@@ -1,16 +1,79 @@
-# React + Vite
+# 📰 Full-Stack News Portal (React + Spring Boot + MongoDB)
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A production-ready **Full Stack News Application** where users can read, like/dislike, and comment, own comment also edit delete on news articles — while **reporters** can publish and manage news posts.
 
-Currently, two official plugins are available:
+Built with **React (Vite + Tailwind CSS)** on frontend and **Spring Boot + MongoDB + JWT (HttpOnly cookies)** on backend.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+---
 
-## React Compiler
+## 🚀 Features
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### 👤 Authentication & Roles
+- Secure login & signup using **JWT (HttpOnly cookies)**
+- Role-based access:
+  - **USER:** Read, like/dislike, comment
+  - **REPORTER:** Add, update, delete news
 
-## Expanding the ESLint configuration
+### 📰 News Management
+- Reporters can **add, update, delete** their own news
+- Users can **view all published news**
+- Each article shows **author, date, likes, dislikes**
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+### 👍 Like / Dislike System
+- Toggle like/dislike functionality per user
+- Real-time like/dislike count updates
+- Ensures only one reaction per user per post
+
+### 💬 Comments System
+- Add, edit, or delete comments
+- View or hide comment section
+- Auto-refresh after commenting
+
+### ⚙️ Backend Highlights
+- **Controller → Service → Repository → DTO** structure
+- **Custom exception handling** (`CustomApiException`)
+- **Spring Security + JWT** authentication
+- MongoDB integration
+
+### 🎨 Frontend Highlights
+- Built using **React + Vite + Tailwind CSS**
+- Clean, responsive UI for mobile & desktop
+- Uses React Hooks: `useState`, `useEffect`, `useContext`
+- Real-time API sync for likes/comments
+- Secure API calls with `credentials: "include"`
+
+---
+
+## 🛠️ Tech Stack
+
+| Layer | Technology |
+|-------|-------------|
+| **Frontend** | React, Vite, Tailwind CSS |
+| **Backend** | Spring Boot, Spring Security, JWT |
+| **Database** | MongoDB |
+| **Language** | Java, JavaScript (ES6+) |
+| **Build Tool** | Maven |
+| **Version Control** | Git + GitHub |
+
+---
+
+
+---
+
+## ⚙️ Setup Instructions
+
+### 🧠 Backend Setup
+
+1. Clone the repo
+   ```bash
+   git clone https://github.com/dibesh7381/full-stack-news-app-spring-boot
+   cd full-stack-news-app-spring-boot/NewsApp
+
+### 🧠 Frontend Setup
+2. cd full-stack-news-app-spring-boot/frontend/pj
+
+---
+
+### Screenshots
+
+![Desktop Screenshot](pj/src/screenshots/4.png)
