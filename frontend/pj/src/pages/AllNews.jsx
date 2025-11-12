@@ -1,185 +1,356 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useContext } from "react";
+import { AuthContext } from "../contexts/AuthContext";
 
 const AllNews = () => {
+  const { user } = useContext(AuthContext);
   const [newsList, setNewsList] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [userRole, setUserRole] = useState(null);
+  const [commentInputs, setCommentInputs] = useState({});
+  const [editMode, setEditMode] = useState({});
+  const [editInputs, setEditInputs] = useState({});
+  const [commentsMap, setCommentsMap] = useState({});
+  const [showComments, setShowComments] = useState({});
   const API_BASE = "http://localhost:8080/api/auth";
 
-  // ✅ Fetch user profile to get role
-  const fetchUserProfile = async () => {
-    try {
-      const res = await fetch(`${API_BASE}/profile`, {
-        method: "GET",
-        credentials: "include",
-      });
-      const data = await res.json();
-      if (data.success && data.data) {
-        setUserRole(data.data.role);
-      }
-    } catch (err) {
-      console.error("Error fetching profile:", err);
-    }
-  };
-
-  // ✅ Fetch all news
+  // ✅ Fetch all news (without likes/dislikes)
   const fetchAllNews = async () => {
-    setLoading(true);
     try {
       const res = await fetch(`${API_BASE}/news/all`, {
-        method: "GET",
         credentials: "include",
       });
       const data = await res.json();
-
       if (data.success && Array.isArray(data.data)) {
         setNewsList(data.data);
-      } else if (Array.isArray(data)) {
-        setNewsList(data);
-      } else {
-        setNewsList([]);
+        // Fetch reactions for each news
+        data.data.forEach((n) => fetchReactions(n.id));
       }
     } catch (err) {
-      console.error("Error fetching all news:", err);
-      setNewsList([]);
-    } finally {
-      setLoading(false);
+      console.error("Error fetching news:", err);
     }
   };
 
-  // ✅ Like / Dislike functionality
-  const handleLikeDislike = async (newsId, action) => {
-    if (userRole === "REPORTER") return; // reporters can’t interact
-
+  // ✅ Fetch like/dislike data separately
+  const fetchReactions = async (newsId) => {
     try {
-      const res = await fetch(`${API_BASE}/news/like-dislike`, {
-        method: "POST",
+      const res = await fetch(`${API_BASE}/news/${newsId}/reactions`, {
         credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ newsId, action }),
       });
-
       const data = await res.json();
-      if (data.success && data.data) {
+      if (data.success) {
         setNewsList((prev) =>
-          prev.map((item) =>
-            item.id === newsId
+          prev.map((n) =>
+            n.id === newsId
               ? {
-                  ...item,
+                  ...n,
                   likeCount: data.data.likeCount,
                   dislikeCount: data.data.dislikeCount,
                   userAction: data.data.userAction,
                 }
-              : item
+              : n
           )
         );
       }
     } catch (err) {
-      console.error("Error liking/disliking:", err);
+      console.error("Error fetching reactions:", err);
     }
   };
 
+  // ✅ Toggle like/dislike
+  const handleReaction = async (newsId, action) => {
+    try {
+      const res = await fetch(`${API_BASE}/news/like-dislike`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ newsId, action }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setNewsList((prev) =>
+          prev.map((n) =>
+            n.id === newsId
+              ? {
+                  ...n,
+                  likeCount: data.data.likeCount,
+                  dislikeCount: data.data.dislikeCount,
+                  userAction: data.data.userAction,
+                }
+              : n
+          )
+        );
+      }
+    } catch (err) {
+      console.error("Error updating reaction:", err);
+    }
+  };
+
+  // ✅ Fetch comments for one news
+  const fetchComments = async (newsId) => {
+    try {
+      const res = await fetch(`${API_BASE}/news/${newsId}/comments`, {
+        credentials: "include",
+      });
+      const data = await res.json();
+      if (data.success)
+        setCommentsMap((prev) => ({ ...prev, [newsId]: data.data }));
+    } catch (err) {
+      console.error("Error fetching comments:", err);
+    }
+  };
+
+  // ✅ Toggle comment visibility
+  const toggleComments = (newsId) => {
+    setShowComments((prev) => {
+      const isVisible = !prev[newsId];
+      if (isVisible && !commentsMap[newsId]) fetchComments(newsId);
+      return { ...prev, [newsId]: isVisible };
+    });
+  };
+
+  // ✅ Add comment
+  const addComment = async (newsId) => {
+    const content = commentInputs[newsId];
+    if (!content?.trim()) return;
+    try {
+      const res = await fetch(`${API_BASE}/news/comment`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ newsId, content }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        fetchComments(newsId);
+        setCommentInputs((prev) => ({ ...prev, [newsId]: "" }));
+      }
+    } catch (err) {
+      console.error("Error adding comment:", err);
+    }
+  };
+
+  // ✅ Delete comment
+  const deleteComment = async (commentId, newsId) => {
+    if (!window.confirm("Delete this comment?")) return;
+    try {
+      const res = await fetch(`${API_BASE}/news/comment/delete/${commentId}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      const data = await res.json();
+      if (data.success) fetchComments(newsId);
+    } catch (err) {
+      console.error("Error deleting comment:", err);
+    }
+  };
+
+  // ✅ Start editing
+  const startEdit = (commentId, currentText) => {
+    setEditMode((prev) => ({ ...prev, [commentId]: true }));
+    setEditInputs((prev) => ({ ...prev, [commentId]: currentText }));
+  };
+
+  // ✅ Cancel edit
+  const cancelEdit = (commentId) => {
+    setEditMode((prev) => ({ ...prev, [commentId]: false }));
+  };
+
+  // ✅ Save edited comment
+  const saveEdit = async (commentId, newsId) => {
+    const content = editInputs[commentId];
+    if (!content?.trim()) return;
+    try {
+      const res = await fetch(`${API_BASE}/news/comment/update`, {
+        method: "PUT",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ commentId, content }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        fetchComments(newsId);
+        setEditMode((prev) => ({ ...prev, [commentId]: false }));
+      }
+    } catch (err) {
+      console.error("Error updating comment:", err);
+    }
+  };
+
+  // ✅ Initial load
   useEffect(() => {
-    fetchUserProfile();
     fetchAllNews();
   }, []);
 
+  const formatDate = (isoString) => {
+    const date = new Date(isoString);
+    return date.toLocaleString("en-IN", {
+      dateStyle: "medium",
+      timeStyle: "short",
+    });
+  };
+
+  // ✅ UI Rendering
   return (
     <div className="min-h-screen bg-gray-900 text-white p-5 md:p-10">
       <div className="max-w-6xl mx-auto">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8">
-          <h1 className="text-3xl font-bold text-yellow-400 text-center md:text-left">
-            📰 All Latest News
-          </h1>
-          <button
-            onClick={fetchAllNews}
-            disabled={loading}
-            className="mt-3 md:mt-0 px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-black rounded-lg font-semibold shadow-md transition"
+        <h1 className="text-3xl font-bold text-yellow-400 text-center mb-8">
+          📰 All Latest News
+        </h1>
+
+        {newsList.map((news) => (
+          <div
+            key={news.id}
+            className="bg-gray-800 rounded-2xl p-5 mb-6 shadow-lg border border-gray-700"
           >
-            {loading ? "Refreshing..." : "🔄 Refresh"}
-          </button>
-        </div>
-
-        {loading && (
-          <p className="text-gray-400 text-center animate-pulse">
-            Loading news...
-          </p>
-        )}
-
-        {!loading && newsList.length === 0 && (
-          <p className="text-gray-400 text-center">
-            No news available right now.
-          </p>
-        )}
-
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {newsList.map((news) => (
-            <div
-              key={news.id}
-              className="bg-gray-800 border border-gray-700 rounded-2xl p-5 shadow-lg hover:shadow-yellow-500/20 hover:-translate-y-1 transition-all duration-300"
-            >
-              <h3 className="text-xl font-semibold text-yellow-400 mb-2 line-clamp-1">
+            {/* News Title & Date */}
+            <div className="flex justify-between items-center mb-2">
+              <h2 className="text-xl font-semibold text-yellow-400">
                 {news.title}
-              </h3>
-              <p className="text-gray-300 text-sm mb-4 line-clamp-3">
-                {news.content}
+              </h2>
+              <p className="text-gray-400 text-sm">
+                {formatDate(news.createdAt)}
               </p>
-
-              <div className="border-t border-gray-700 pt-3 text-sm text-gray-400 space-y-1">
-                <p>
-                  📅 <span className="text-gray-300">Published on:</span>{" "}
-                  {news.createdAt
-                    ? new Date(news.createdAt).toLocaleDateString("en-IN", {
-                        day: "2-digit",
-                        month: "short",
-                        year: "numeric",
-                      })
-                    : "Unknown"}
-                </p>
-                <p>
-                  🧑‍💼 <span className="text-gray-300">Published by:</span>{" "}
-                  {news.reporterName || "Unknown Reporter"}
-                </p>
-              </div>
-
-              {/* ✅ Like / Dislike Buttons (visible to everyone but disabled for reporter) */}
-              <div className="flex justify-between items-center mt-4 text-sm">
-                <button
-                  onClick={() => handleLikeDislike(news.id, "LIKE")}
-                  disabled={userRole === "REPORTER"}
-                  className={`px-3 py-1 rounded-lg font-semibold transition ${
-                    news.userAction === "LIKE"
-                      ? "bg-green-600 text-white"
-                      : "bg-gray-700 hover:bg-green-700"
-                  } ${userRole === "REPORTER" ? "opacity-50 cursor-not-allowed" : ""}`}
-                >
-                  👍 {news.likeCount || 0}
-                </button>
-
-                <button
-                  onClick={() => handleLikeDislike(news.id, "DISLIKE")}
-                  disabled={userRole === "REPORTER"}
-                  className={`px-3 py-1 rounded-lg font-semibold transition ${
-                    news.userAction === "DISLIKE"
-                      ? "bg-red-600 text-white"
-                      : "bg-gray-700 hover:bg-red-700"
-                  } ${userRole === "REPORTER" ? "opacity-50 cursor-not-allowed" : ""}`}
-                >
-                  👎 {news.dislikeCount || 0}
-                </button>
-              </div>
             </div>
-          ))}
-        </div>
+
+            {/* News Content */}
+            <p className="text-gray-300 mt-2">{news.content}</p>
+            <p className="text-gray-500 text-sm mt-2">
+              Published by:{" "}
+              <span className="text-yellow-400">{news.reporterName}</span>
+            </p>
+
+            {/* ✅ Like/Dislike Section */}
+            <div className="flex gap-4 mt-4 items-center">
+              <button
+                className={`px-2 py-1 rounded ${
+                  news.userAction === "LIKE"
+                    ? "bg-green-500 text-black"
+                    : "bg-gray-700"
+                }`}
+                disabled={user?.role === "REPORTER"}
+                onClick={() => handleReaction(news.id, "LIKE")}
+              >
+                👍 {news.likeCount ?? 0}
+              </button>
+              <button
+                className={`px-2 py-1 rounded ${
+                  news.userAction === "DISLIKE"
+                    ? "bg-red-500 text-black"
+                    : "bg-gray-700"
+                }`}
+                disabled={user?.role === "REPORTER"}
+                onClick={() => handleReaction(news.id, "DISLIKE")}
+              >
+                👎 {news.dislikeCount ?? 0}
+              </button>
+            </div>
+
+            {/* ✅ Comments Section */}
+            <div className="mt-5 border-t border-gray-700 pt-4">
+              <button
+                onClick={() => toggleComments(news.id)}
+                className="text-yellow-400 underline text-sm mb-2"
+              >
+                {showComments[news.id] ? "Hide Comments" : "View Comments"}
+              </button>
+
+              {showComments[news.id] && (
+                <>
+                  {user?.role !== "REPORTER" && (
+                    <div className="flex gap-2 mb-4">
+                      <input
+                        type="text"
+                        placeholder="Write a comment..."
+                        value={commentInputs[news.id] || ""}
+                        onChange={(e) =>
+                          setCommentInputs({
+                            ...commentInputs,
+                            [news.id]: e.target.value,
+                          })
+                        }
+                        className="flex-1 bg-transparent border-b border-gray-500 text-sm text-gray-200 placeholder-gray-400 focus:outline-none focus:border-yellow-400"
+                      />
+
+                      <button
+                        onClick={() => addComment(news.id)}
+                        className="px-3 py-1 bg-yellow-500 text-black rounded-full font-semibold text-sm"
+                      >
+                        Post
+                      </button>
+                    </div>
+                  )}
+
+                  <div className="max-h-40 overflow-y-auto flex flex-col space-y-3">
+                    {(commentsMap[news.id] || []).map((c) => (
+                      <div
+                        key={c.id}
+                        className="bg-gray-700 rounded-lg p-3 flex justify-between items-center"
+                      >
+                        <div className="flex-1">
+                          <p className="font-semibold text-yellow-400">
+                            {c.userName}
+                          </p>
+                          {editMode[c.id] ? (
+                            <div className="flex gap-2 mt-1">
+                              <input
+                                type="text"
+                                value={editInputs[c.id] || ""}
+                                onChange={(e) =>
+                                  setEditInputs({
+                                    ...editInputs,
+                                    [c.id]: e.target.value,
+                                  })
+                                }
+                                className="flex-1 bg-transparent border-b border-gray-500 text-sm text-gray-200 focus:outline-none focus:border-yellow-400"
+                              />
+                              <button
+                                onClick={() => saveEdit(c.id, news.id)}
+                                className="text-green-400 text-sm"
+                              >
+                                Save
+                              </button>
+                              <button
+                                onClick={() => cancelEdit(c.id)}
+                                className="text-red-400 text-sm"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          ) : (
+                            <p className="text-gray-200 text-sm mt-1">
+                              {c.content}
+                            </p>
+                          )}
+                        </div>
+
+                        {/* Edit/Delete for comment owner */}
+                        {!editMode[c.id] &&
+                          user &&
+                          user.name === c.userName && (
+                            <div className="flex flex-col gap-1 text-xs ml-3">
+                              <button
+                                onClick={() => startEdit(c.id, c.content)}
+                                className="text-blue-400 hover:underline"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                onClick={() => deleteComment(c.id, news.id)}
+                                className="text-red-400 hover:underline"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          )}
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
 };
 
 export default AllNews;
-
-
-
-
