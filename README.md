@@ -70,7 +70,9 @@ Built with **React (Vite + Tailwind CSS)** on frontend and **Spring Boot + Mongo
    cd full-stack-news-app-spring-boot/NewsApp
 
 ### 🧠 Frontend Setup
-2. cd full-stack-news-app-spring-boot/frontend/pj
+2. Run on terminal 
+    ```bash
+    cd full-stack-news-app-spring-boot/frontend/pj
 
 ---
 
@@ -84,5 +86,12 @@ Built with **React (Vite + Tailwind CSS)** on frontend and **Spring Boot + Mongo
 ![Mobile View Screenshot](frontend/pj/src/screenshots/2.png)
 ![Mobile View Screenshot](frontend/pj/src/screenshots/1.png)
 ![Mobile View Screenshot](frontend/pj/src/screenshots/5.png)
+
+---
+
+## 🤝 Connect With Me
+
+💻 **GitHub:** [@dibesh7381](https://github.com/dibesh7381)  
+📧 **Email:** [dibesh7381@gmail.com](dibeshranjan6@gmail.com)   
 
 ---
