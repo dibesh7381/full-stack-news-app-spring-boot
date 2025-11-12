@@ -14,11 +14,6 @@ public class NewsResponseDto {
     private String content;
     private String reporterName;
     private Instant createdAt;
-
-    // ✅ Add these new fields for like/dislike
-    private long likeCount;
-    private long dislikeCount;
-    private String userAction; // "LIKE", "DISLIKE", or "NONE"
 }
 
 

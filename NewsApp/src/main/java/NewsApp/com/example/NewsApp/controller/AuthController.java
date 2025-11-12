@@ -133,6 +133,16 @@ public class AuthController {
         return ResponseEntity.ok(new ApiResponseDto<>(true, "Action updated successfully", response));
     }
 
+    @GetMapping("/news/{newsId}/reactions")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ApiResponseDto<LikeDislikeResponse>> getReactions(@PathVariable String newsId) {
+        String email = (String) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        LikeDislikeResponse response = authService.getReactionsForNews(newsId, email);
+        return ResponseEntity.ok(new ApiResponseDto<>(true, "Fetched like/dislike info", response));
+    }
+
+
+
     // ====================== Comment Routes ======================
 
     @PostMapping("/news/comment")
@@ -165,6 +175,5 @@ public class AuthController {
         CommentResponseDto updated = authService.updateComment(dto, email);
         return ResponseEntity.ok(new ApiResponseDto<>(true, "Comment updated successfully", updated));
     }
-
 }
 

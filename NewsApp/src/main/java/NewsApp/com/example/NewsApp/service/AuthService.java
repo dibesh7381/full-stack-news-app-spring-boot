@@ -157,10 +157,6 @@ public class AuthService {
     }
 
     public List<NewsResponseDto> getAllNews(String userEmail) {
-        // ✅ Get current logged-in user (for showing their like/dislike)
-        User currentUser = userRepository.findByEmail(userEmail)
-                .orElseThrow(() -> new CustomApiException(HttpStatus.NOT_FOUND, "User not found"));
-
         List<News> newsList = newsRepository.findAll();
 
         return newsList.stream().map(news -> {
@@ -171,25 +167,13 @@ public class AuthService {
             dto.setCreatedAt(news.getCreatedAt());
 
             // ✅ Reporter name
-            userRepository.findById(news.getReporterId()).ifPresent(user -> {
-                dto.setReporterName(user.getUsername());
-            });
-
-            // ✅ Like & Dislike counts
-            long likeCount = likeDislikeRepository.countByNewsIdAndAction(news.getId(), "LIKE");
-            long dislikeCount = likeDislikeRepository.countByNewsIdAndAction(news.getId(), "DISLIKE");
-            dto.setLikeCount(likeCount);
-            dto.setDislikeCount(dislikeCount);
-
-            // ✅ Current user's action
-            String userAction = likeDislikeRepository.findByUserIdAndNewsId(currentUser.getId(), news.getId())
-                    .map(LikeDislike::getAction)
-                    .orElse("NONE");
-            dto.setUserAction(userAction);
+            userRepository.findById(news.getReporterId())
+                    .ifPresent(user -> dto.setReporterName(user.getUsername()));
 
             return dto;
         }).collect(Collectors.toList());
     }
+
 
 
     // ====================== Like / Dislike ======================
@@ -230,6 +214,25 @@ public class AuthService {
 
         return new LikeDislikeResponse(news.getId(), likeCount, dislikeCount, userAction);
     }
+
+    public LikeDislikeResponse getReactionsForNews(String newsId, String userEmail) {
+        User user = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new CustomApiException(HttpStatus.NOT_FOUND, "User not found"));
+
+        News news = newsRepository.findById(newsId)
+                .orElseThrow(() -> new CustomApiException(HttpStatus.NOT_FOUND, "News not found"));
+
+        long likeCount = likeDislikeRepository.countByNewsIdAndAction(news.getId(), "LIKE");
+        long dislikeCount = likeDislikeRepository.countByNewsIdAndAction(news.getId(), "DISLIKE");
+
+        String userAction = likeDislikeRepository.findByUserIdAndNewsId(user.getId(), news.getId())
+                .map(LikeDislike::getAction)
+                .orElse("NONE");
+
+        return new LikeDislikeResponse(newsId, likeCount, dislikeCount, userAction);
+    }
+
+
 
     // ====================== Comments Feature ======================
 
@@ -309,8 +312,6 @@ public class AuthService {
 
         return response;
     }
-
-
 }
 
 
