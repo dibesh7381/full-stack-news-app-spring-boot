@@ -76,4 +76,9 @@ Built with **React (Vite + Tailwind CSS)** on frontend and **Spring Boot + Mongo
 
 ### Screenshots
 
-![Desktop Screenshot](pj/src/screenshots/4.png)
+![Desktop View Screenshot](frontend/pj/src/screenshots/4.png)
+![Mobile View Screenshot](frontend/pj/src/screenshots/3.png)
+![Mobile View Screenshot](frontend/pj/src/screenshots/2.png)
+![Mobile View Screenshot](frontend/pj/src/screenshots/1.png)
+
+---
