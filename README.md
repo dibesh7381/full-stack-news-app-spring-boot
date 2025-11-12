@@ -76,12 +76,12 @@ Built with **React (Vite + Tailwind CSS)** on frontend and **Spring Boot + Mongo
 
 ---
 
-### Screenshots
+## Screenshots
 
-## Desktop View
+### Desktop View
 ![Desktop View Screenshot](frontend/pj/src/screenshots/4.png)
 
-## Mobile View
+### Mobile View
 ![Mobile View Screenshot](frontend/pj/src/screenshots/3.png)
 ![Mobile View Screenshot](frontend/pj/src/screenshots/2.png)
 ![Mobile View Screenshot](frontend/pj/src/screenshots/1.png)
