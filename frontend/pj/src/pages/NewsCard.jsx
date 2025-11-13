@@ -125,8 +125,9 @@ const NewsCard = ({ news, user }) => {
                   placeholder="Write a comment..."
                   value={commentInput}
                   onChange={(e) => setCommentInput(e.target.value)}
-                  className="flex-1 bg-transparent border-b border-gray-500"
+                  className="flex-1 bg-transparent border-b border-gray-500 outline-none py-1 text-sm"
                 />
+
                 <button
                   onClick={handleAddComment}
                   className="px-3 py-1 bg-yellow-500 text-black rounded-full"
@@ -141,7 +142,7 @@ const NewsCard = ({ news, user }) => {
               {comments.map((c) => (
                 <div
                   key={c.id}
-                  className="bg-gray-700 rounded-lg p-3 flex justify-between"
+                  className="bg-gray-700 rounded-lg p-3 flex justify-between items-center"
                 >
                   <div className="flex-1">
                     <p className="font-semibold text-yellow-400">
@@ -160,8 +161,9 @@ const NewsCard = ({ news, user }) => {
                               [c.id]: e.target.value,
                             }))
                           }
-                          className="flex-1 bg-transparent border-b border-gray-500"
+                          className="flex-1 bg-transparent border-b border-gray-500 outline-none py-1 text-sm"
                         />
+
                         <button
                           onClick={() => handleSaveEdit(c.id)}
                           className="text-green-400 text-sm"
@@ -213,6 +215,3 @@ const NewsCard = ({ news, user }) => {
 };
 
 export default NewsCard;
-
-
-
