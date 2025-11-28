@@ -195,7 +195,5 @@ public class AuthController {
         return ResponseEntity.ok(new ApiResponseDto<>(true, "Top 5 liked news fetched", stats));
     }
 
-
-
 }
 

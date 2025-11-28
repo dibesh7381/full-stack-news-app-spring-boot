@@ -789,7 +789,5 @@ public class AuthService {
 
         return result.getMappedResults();
     }
-
-
 }
 
