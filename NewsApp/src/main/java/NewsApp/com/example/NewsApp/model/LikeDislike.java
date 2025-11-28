@@ -12,7 +12,6 @@ public class LikeDislike {
 
     @Id
     private String id;
-
     private String userId;
     private String newsId;
     private String action; // "LIKE" or "DISLIKE"

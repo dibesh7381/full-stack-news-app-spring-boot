@@ -119,7 +119,7 @@ public class AuthController {
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponseDto<List<NewsResponseDto>>> getAllNews() {
         String email = (String) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        List<NewsResponseDto> allNews = authService.getAllNews(email);
+        List<NewsResponseDto> allNews = authService.getAllNews(email);  // ← Email pass kar
         return ResponseEntity.ok(new ApiResponseDto<>(true, "Fetched all news successfully", allNews));
     }
 
@@ -175,5 +175,6 @@ public class AuthController {
         CommentResponseDto updated = authService.updateComment(dto, email);
         return ResponseEntity.ok(new ApiResponseDto<>(true, "Comment updated successfully", updated));
     }
+
 }
 

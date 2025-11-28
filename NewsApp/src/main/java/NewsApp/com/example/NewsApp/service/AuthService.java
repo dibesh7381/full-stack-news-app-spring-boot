@@ -1,5 +1,4 @@
 //package NewsApp.com.example.NewsApp.service;
-//
 //import NewsApp.com.example.NewsApp.dto.*;
 //import NewsApp.com.example.NewsApp.exception.CustomApiException;
 //import NewsApp.com.example.NewsApp.model.*;
@@ -233,7 +232,7 @@
 //    }
 //
 //
-
+//
 //    // ====================== Comments Feature ======================
 //
 //    public CommentResponseDto addComment(CommentRequestDto dto, String userEmail) {
@@ -313,22 +312,19 @@
 //        return response;
 //    }
 //}
-//
-//
 
 package NewsApp.com.example.NewsApp.service;
-
 import NewsApp.com.example.NewsApp.dto.*;
 import NewsApp.com.example.NewsApp.exception.CustomApiException;
 import NewsApp.com.example.NewsApp.model.*;
 import NewsApp.com.example.NewsApp.security.JwtUtil;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.*;
+import org.springframework.data.mongodb.core.aggregation.*;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-import org.springframework.data.mongodb.core.MongoTemplate;
-import org.springframework.data.mongodb.core.query.*;
-import org.springframework.data.mongodb.core.FindAndModifyOptions;
 
 import java.time.Instant;
 import java.util.List;
@@ -343,12 +339,12 @@ public class AuthService {
     private final JwtUtil jwtUtil;
 
 
-    // ====================== Auth Routes ======================
+    // ====================== AUTH ======================
 
     public SignupResponse signup(SignupRequest request) {
 
-        Query emailQuery = new Query(Criteria.where("email").is(request.getEmail()));
-        if (mongoTemplate.exists(emailQuery, User.class)) {
+        Query q = new Query(Criteria.where("email").is(request.getEmail()));
+        if (mongoTemplate.exists(q, User.class)) {
             throw new CustomApiException(HttpStatus.BAD_REQUEST, "Email already registered");
         }
 
@@ -363,6 +359,7 @@ public class AuthService {
         return new SignupResponse(user.getUsername(), user.getEmail());
     }
 
+
     public LoginResponse login(LoginRequest request) {
 
         Query q = new Query(Criteria.where("email").is(request.getEmail()));
@@ -376,14 +373,35 @@ public class AuthService {
         return new LoginResponse(user.getEmail(), user.getRole(), token);
     }
 
+
     public ProfileResponse getProfileByEmail(String email) {
+
         Query q = new Query(Criteria.where("email").is(email));
         User user = mongoTemplate.findOne(q, User.class);
 
-        if (user == null) throw new CustomApiException(HttpStatus.NOT_FOUND, "User not found");
+        if (user == null) {
+            throw new CustomApiException(HttpStatus.NOT_FOUND, "User not found");
+        }
 
         return new ProfileResponse(user.getUsername(), user.getEmail(), user.getRole());
     }
+
+
+    public ProfileResponse becomeReporter(String email) {
+
+        Query q = new Query(Criteria.where("email").is(email));
+        User user = mongoTemplate.findOne(q, User.class);
+
+        if (user == null) {
+            throw new CustomApiException(HttpStatus.NOT_FOUND, "User not found");
+        }
+
+        user.setRole("REPORTER");
+        mongoTemplate.save(user);
+
+        return new ProfileResponse(user.getUsername(), user.getEmail(), user.getRole());
+    }
+
 
     public HomePageDTO getPublicHomepage() {
         return new HomePageDTO(
@@ -392,30 +410,20 @@ public class AuthService {
         );
     }
 
-    public ProfileResponse becomeReporter(String email) {
 
-        Query q = new Query(Criteria.where("email").is(email));
-        Update update = new Update().set("role", "REPORTER");
-
-        FindAndModifyOptions opt = FindAndModifyOptions.options().returnNew(true);
-
-        User updated = mongoTemplate.findAndModify(q, update, opt, User.class);
-
-        if (updated == null) throw new CustomApiException(HttpStatus.NOT_FOUND, "User not found");
-
-        return new ProfileResponse(updated.getUsername(), updated.getEmail(), updated.getRole());
-    }
+    // ====================== NEWS ======================
 
 
+    public NewsResponseDto addNews(NewsRequestDto dto, String email) {
 
-    // ====================== News Routes ======================
+        User reporter = mongoTemplate.findOne(
+                new Query(Criteria.where("email").is(email)),
+                User.class
+        );
 
-    public NewsResponseDto addNews(NewsRequestDto dto, String userEmail) {
+        if (reporter == null)
+            throw new CustomApiException(HttpStatus.NOT_FOUND, "User not found");
 
-        Query q = new Query(Criteria.where("email").is(userEmail));
-        User reporter = mongoTemplate.findOne(q, User.class);
-
-        if (reporter == null) throw new CustomApiException(HttpStatus.NOT_FOUND, "User not found");
         if (!"REPORTER".equals(reporter.getRole()))
             throw new CustomApiException(HttpStatus.FORBIDDEN, "Only reporters can add news");
 
@@ -427,208 +435,193 @@ public class AuthService {
 
         mongoTemplate.save(news);
 
-        NewsResponseDto res = new NewsResponseDto();
-        res.setId(news.getId());
-        res.setTitle(news.getTitle());
-        res.setContent(news.getContent());
-        res.setReporterName(reporter.getUsername());
-        res.setCreatedAt(news.getCreatedAt());
-        return res;
+        return new NewsResponseDto(news.getId(), news.getTitle(), news.getContent(),
+                reporter.getUsername(), news.getCreatedAt());
     }
 
-    public List<NewsResponseDto> getMyNews(String userEmail) {
 
-        Query q = new Query(Criteria.where("email").is(userEmail));
-        User reporter = mongoTemplate.findOne(q, User.class);
+    public List<NewsResponseDto> getMyNews(String email) {
 
-        if (reporter == null) throw new CustomApiException(HttpStatus.NOT_FOUND, "User not found");
+        User reporter = mongoTemplate.findOne(
+                new Query(Criteria.where("email").is(email)),
+                User.class
+        );
 
-        Query newsQuery = new Query(Criteria.where("reporterId").is(reporter.getId()));
-        List<News> newsList = mongoTemplate.find(newsQuery, News.class);
+        if (reporter == null)
+            throw new CustomApiException(HttpStatus.NOT_FOUND, "User not found");
 
-        return newsList.stream().map(n -> {
-            NewsResponseDto dto = new NewsResponseDto();
-            dto.setId(n.getId());
-            dto.setTitle(n.getTitle());
-            dto.setContent(n.getContent());
-            return dto;
-        }).collect(Collectors.toList());
+        Query q = new Query(Criteria.where("reporterId").is(reporter.getId()));
+        List<News> newsList = mongoTemplate.find(q, News.class);
+
+        return newsList.stream().map(n ->
+                new NewsResponseDto(n.getId(), n.getTitle(), n.getContent(),
+                        reporter.getUsername(), n.getCreatedAt())
+        ).collect(Collectors.toList());
     }
 
-    public NewsResponseDto updateNews(String newsId, NewsRequestDto dto, String userEmail) {
 
-        // find reporter
-        Query userQ = new Query(Criteria.where("email").is(userEmail));
-        User reporter = mongoTemplate.findOne(userQ, User.class);
-        if (reporter == null) throw new CustomApiException(HttpStatus.NOT_FOUND, "User not found");
+    public NewsResponseDto updateNews(String newsId, NewsRequestDto dto, String email) {
 
-        // find news
-        Query q = new Query(Criteria.where("_id").is(newsId));
-        News found = mongoTemplate.findOne(q, News.class);
-        if (found == null) throw new CustomApiException(HttpStatus.NOT_FOUND, "News not found");
+        User reporter = mongoTemplate.findOne(
+                new Query(Criteria.where("email").is(email)),
+                User.class
+        );
 
-        if (!found.getReporterId().equals(reporter.getId()))
-            throw new CustomApiException(HttpStatus.FORBIDDEN, "You can only edit your own news");
+        News news = mongoTemplate.findById(newsId, News.class);
 
-        // UPDATE + RETURN NEW DOC
-        Update update = new Update()
-                .set("title", dto.getTitle())
-                .set("content", dto.getContent());
-
-        FindAndModifyOptions opt = FindAndModifyOptions.options().returnNew(true);
-        News updated = mongoTemplate.findAndModify(q, update, opt, News.class);
-
-        NewsResponseDto response = new NewsResponseDto();
-        response.setId(updated.getId());
-        response.setTitle(updated.getTitle());
-        response.setContent(updated.getContent());
-        response.setReporterName(reporter.getUsername());
-        response.setCreatedAt(updated.getCreatedAt());
-
-        return response;
-    }
-
-    public void deleteNews(String newsId, String userEmail) {
-
-        Query userQ = new Query(Criteria.where("email").is(userEmail));
-        User reporter = mongoTemplate.findOne(userQ, User.class);
-
-        if (reporter == null) throw new CustomApiException(HttpStatus.NOT_FOUND, "User not found");
-
-        Query q = new Query(Criteria.where("_id").is(newsId));
-        News news = mongoTemplate.findOne(q, News.class);
-
-        if (news == null) throw new CustomApiException(HttpStatus.NOT_FOUND, "News not found");
+        if (reporter == null || news == null)
+            throw new CustomApiException(HttpStatus.NOT_FOUND, "User or News not found");
 
         if (!news.getReporterId().equals(reporter.getId()))
-            throw new CustomApiException(HttpStatus.FORBIDDEN, "You can delete only your own news");
+            throw new CustomApiException(HttpStatus.FORBIDDEN, "Not your news");
 
-        mongoTemplate.remove(q, News.class);
+        news.setTitle(dto.getTitle());
+        news.setContent(dto.getContent());
+
+        mongoTemplate.save(news);
+
+        return new NewsResponseDto(news.getId(), news.getTitle(), news.getContent(),
+                reporter.getUsername(), news.getCreatedAt());
     }
 
-    public List<NewsResponseDto> getAllNews(String userEmail) {
 
-        List<News> list = mongoTemplate.findAll(News.class);
+    public void deleteNews(String newsId, String email) {
 
-        return list.stream().map(n -> {
-            NewsResponseDto dto = new NewsResponseDto();
-            dto.setId(n.getId());
-            dto.setTitle(n.getTitle());
-            dto.setContent(n.getContent());
-            dto.setCreatedAt(n.getCreatedAt());
+        User reporter = mongoTemplate.findOne(
+                new Query(Criteria.where("email").is(email)),
+                User.class
+        );
 
-            // find reporter
-            Query q = new Query(Criteria.where("_id").is(n.getReporterId()));
-            User rep = mongoTemplate.findOne(q, User.class);
-            if (rep != null) dto.setReporterName(rep.getUsername());
+        News news = mongoTemplate.findById(newsId, News.class);
 
-            return dto;
+        if (reporter == null || news == null)
+            throw new CustomApiException(HttpStatus.NOT_FOUND, "User or News not found");
+
+        if (!news.getReporterId().equals(reporter.getId()))
+            throw new CustomApiException(HttpStatus.FORBIDDEN, "Not your news");
+
+        mongoTemplate.remove(news);
+    }
+
+
+    public List<NewsResponseDto> getAllNews(String email) {
+
+        List<News> newsList = mongoTemplate.findAll(News.class);
+
+        return newsList.stream().map(news -> {
+
+            User reporter = mongoTemplate.findById(news.getReporterId(), User.class);
+
+            return new NewsResponseDto(
+                    news.getId(),
+                    news.getTitle(),
+                    news.getContent(),
+                    reporter != null ? reporter.getUsername() : "Unknown",
+                    news.getCreatedAt()
+            );
+
         }).collect(Collectors.toList());
     }
 
 
+    // ====================== LIKE / DISLIKE ======================
 
-    // ====================== Like / Dislike ======================
 
-    public LikeDislikeResponse toggleLikeDislike(LikeDislikeRequest req, String userEmail) {
+    public LikeDislikeResponse toggleLikeDislike(LikeDislikeRequest request, String email) {
 
-        // user
-        Query uQ = new Query(Criteria.where("email").is(userEmail));
-        User user = mongoTemplate.findOne(uQ, User.class);
-        if (user == null) throw new CustomApiException(HttpStatus.NOT_FOUND, "User not found");
+        User user = mongoTemplate.findOne(
+                new Query(Criteria.where("email").is(email)), User.class);
 
-        // news exists?
-        Query nQ = new Query(Criteria.where("_id").is(req.getNewsId()));
-        News news = mongoTemplate.findOne(nQ, News.class);
-        if (news == null) throw new CustomApiException(HttpStatus.NOT_FOUND, "News not found");
+        News news = mongoTemplate.findById(request.getNewsId(), News.class);
 
-        String action = req.getAction().toUpperCase();
+        if (user == null || news == null)
+            throw new CustomApiException(HttpStatus.NOT_FOUND, "User or News not found");
 
-        // existing?
-        Query likeQ = new Query(
+        String action = request.getAction().toUpperCase();
+
+        Query q = new Query(
                 Criteria.where("userId").is(user.getId())
                         .and("newsId").is(news.getId())
         );
 
-        LikeDislike existing = mongoTemplate.findOne(likeQ, LikeDislike.class);
+        LikeDislike existing = mongoTemplate.findOne(q, LikeDislike.class);
 
         if (existing != null) {
             if (existing.getAction().equals(action)) {
-                mongoTemplate.remove(likeQ, LikeDislike.class);     // toggle off
+                mongoTemplate.remove(existing);
             } else {
-                Update upd = new Update().set("action", action);
-                mongoTemplate.findAndModify(likeQ, upd, FindAndModifyOptions.options().returnNew(true), LikeDislike.class);
+                existing.setAction(action);
+                mongoTemplate.save(existing);
             }
         } else {
-            LikeDislike ld = new LikeDislike();
-            ld.setUserId(user.getId());
-            ld.setNewsId(news.getId());
-            ld.setAction(action);
-            mongoTemplate.save(ld);
+            LikeDislike newAction = new LikeDislike(null, user.getId(), news.getId(), action);
+            mongoTemplate.save(newAction);
         }
 
+        // COUNT LIKE/DISLIKE
         long likeCount = mongoTemplate.count(
                 new Query(Criteria.where("newsId").is(news.getId()).and("action").is("LIKE")),
-                LikeDislike.class
-        );
+                LikeDislike.class);
 
         long dislikeCount = mongoTemplate.count(
                 new Query(Criteria.where("newsId").is(news.getId()).and("action").is("DISLIKE")),
-                LikeDislike.class
-        );
+                LikeDislike.class);
 
-        LikeDislike finalAction = mongoTemplate.findOne(likeQ, LikeDislike.class);
+        LikeDislike userAction = mongoTemplate.findOne(q, LikeDislike.class);
 
         return new LikeDislikeResponse(
                 news.getId(),
                 likeCount,
                 dislikeCount,
-                finalAction != null ? finalAction.getAction() : "NONE"
+                userAction != null ? userAction.getAction() : "NONE"
         );
     }
 
-    public LikeDislikeResponse getReactionsForNews(String newsId, String userEmail) {
 
-        Query uq = new Query(Criteria.where("email").is(userEmail));
-        User user = mongoTemplate.findOne(uq, User.class);
-        if (user == null) throw new CustomApiException(HttpStatus.NOT_FOUND, "User not found");
 
-        Query nq = new Query(Criteria.where("_id").is(newsId));
-        News news = mongoTemplate.findOne(nq, News.class);
-        if (news == null) throw new CustomApiException(HttpStatus.NOT_FOUND, "News not found");
+    public LikeDislikeResponse getReactionsForNews(String newsId, String email) {
+
+        User user = mongoTemplate.findOne(
+                new Query(Criteria.where("email").is(email)), User.class);
+
+        News news = mongoTemplate.findById(newsId, News.class);
+
+        if (user == null || news == null)
+            throw new CustomApiException(HttpStatus.NOT_FOUND, "User or News not found");
 
         long likeCount = mongoTemplate.count(
                 new Query(Criteria.where("newsId").is(newsId).and("action").is("LIKE")),
-                LikeDislike.class
-        );
+                LikeDislike.class);
 
         long dislikeCount = mongoTemplate.count(
                 new Query(Criteria.where("newsId").is(newsId).and("action").is("DISLIKE")),
+                LikeDislike.class);
+
+        LikeDislike userAction = mongoTemplate.findOne(
+                new Query(Criteria.where("userId").is(user.getId()).and("newsId").is(newsId)),
                 LikeDislike.class
         );
 
-        Query myActionQ = new Query(
-                Criteria.where("userId").is(user.getId()).and("newsId").is(newsId)
+        return new LikeDislikeResponse(
+                newsId, likeCount, dislikeCount,
+                userAction != null ? userAction.getAction() : "NONE"
         );
-        LikeDislike myAction = mongoTemplate.findOne(myActionQ, LikeDislike.class);
-
-        return new LikeDislikeResponse(newsId, likeCount, dislikeCount,
-                myAction != null ? myAction.getAction() : "NONE");
     }
 
 
 
-    // ====================== Comments Feature ======================
+    // ====================== COMMENTS ======================
 
-    public CommentResponseDto addComment(CommentRequestDto dto, String userEmail) {
 
-        Query uq = new Query(Criteria.where("email").is(userEmail));
-        User user = mongoTemplate.findOne(uq, User.class);
-        if (user == null) throw new CustomApiException(HttpStatus.NOT_FOUND, "User not found");
+    public CommentResponseDto addComment(CommentRequestDto dto, String email) {
 
-        Query nq = new Query(Criteria.where("_id").is(dto.getNewsId()));
-        News news = mongoTemplate.findOne(nq, News.class);
-        if (news == null) throw new CustomApiException(HttpStatus.NOT_FOUND, "News not found");
+        User user = mongoTemplate.findOne(
+                new Query(Criteria.where("email").is(email)), User.class);
+
+        News news = mongoTemplate.findById(dto.getNewsId(), News.class);
+
+        if (user == null || news == null)
+            throw new CustomApiException(HttpStatus.NOT_FOUND, "User or News not found");
 
         NewsComment comment = new NewsComment();
         comment.setNewsId(news.getId());
@@ -638,77 +631,77 @@ public class AuthService {
 
         mongoTemplate.save(comment);
 
-        CommentResponseDto res = new CommentResponseDto();
-        res.setId(comment.getId());
-        res.setNewsId(comment.getNewsId());
-        res.setUserName(user.getUsername());
-        res.setContent(comment.getContent());
-        res.setCreatedAt(comment.getCreatedAt());
-        return res;
+        return new CommentResponseDto(
+                comment.getId(),
+                comment.getNewsId(),
+                user.getUsername(),
+                comment.getContent(),
+                comment.getCreatedAt()
+        );
     }
+
 
     public List<CommentResponseDto> getCommentsByNews(String newsId) {
 
-        Query cq = new Query(Criteria.where("newsId").is(newsId));
-        List<NewsComment> comments = mongoTemplate.find(cq, NewsComment.class);
+        Query q = new Query(Criteria.where("newsId").is(newsId));
+        List<NewsComment> comments = mongoTemplate.find(q, NewsComment.class);
 
-        return comments.stream().map(c -> {
-            CommentResponseDto dto = new CommentResponseDto();
-            dto.setId(c.getId());
-            dto.setNewsId(c.getNewsId());
-            dto.setContent(c.getContent());
-            dto.setCreatedAt(c.getCreatedAt());
+        return comments.stream().map(comment -> {
 
-            Query uq = new Query(Criteria.where("_id").is(c.getUserId()));
-            User u = mongoTemplate.findOne(uq, User.class);
-            if (u != null) dto.setUserName(u.getUsername());
+            User u = mongoTemplate.findById(comment.getUserId(), User.class);
 
-            return dto;
+            return new CommentResponseDto(
+                    comment.getId(),
+                    comment.getNewsId(),
+                    u != null ? u.getUsername() : "Unknown",
+                    comment.getContent(),
+                    comment.getCreatedAt()
+            );
+
         }).collect(Collectors.toList());
     }
 
-    public void deleteComment(String commentId, String userEmail) {
 
-        Query uq = new Query(Criteria.where("email").is(userEmail));
-        User user = mongoTemplate.findOne(uq, User.class);
-        if (user == null) throw new CustomApiException(HttpStatus.NOT_FOUND, "User not found");
+    public void deleteComment(String commentId, String email) {
 
-        Query cq = new Query(Criteria.where("_id").is(commentId));
-        NewsComment comment = mongoTemplate.findOne(cq, NewsComment.class);
+        User user = mongoTemplate.findOne(
+                new Query(Criteria.where("email").is(email)), User.class);
 
-        if (comment == null) throw new CustomApiException(HttpStatus.NOT_FOUND, "Comment not found");
+        NewsComment comment = mongoTemplate.findById(commentId, NewsComment.class);
+
+        if (user == null || comment == null)
+            throw new CustomApiException(HttpStatus.NOT_FOUND, "User or Comment not found");
+
         if (!comment.getUserId().equals(user.getId()))
-            throw new CustomApiException(HttpStatus.FORBIDDEN, "You can delete only your own comment");
+            throw new CustomApiException(HttpStatus.FORBIDDEN, "Not your comment");
 
-        mongoTemplate.remove(cq, NewsComment.class);
+        mongoTemplate.remove(comment);
     }
 
-    public CommentResponseDto updateComment(CommentUpdateRequestDto dto, String userEmail) {
 
-        Query uq = new Query(Criteria.where("email").is(userEmail));
-        User user = mongoTemplate.findOne(uq, User.class);
-        if (user == null) throw new CustomApiException(HttpStatus.NOT_FOUND, "User not found");
+    public CommentResponseDto updateComment(CommentUpdateRequestDto dto, String email) {
 
-        Query cq = new Query(Criteria.where("_id").is(dto.getCommentId()));
-        NewsComment comment = mongoTemplate.findOne(cq, NewsComment.class);
+        User user = mongoTemplate.findOne(
+                new Query(Criteria.where("email").is(email)), User.class);
 
-        if (comment == null) throw new CustomApiException(HttpStatus.NOT_FOUND, "Comment not found");
+        NewsComment comment = mongoTemplate.findById(dto.getCommentId(), NewsComment.class);
+
+        if (user == null || comment == null)
+            throw new CustomApiException(HttpStatus.NOT_FOUND, "User or Comment not found");
+
         if (!comment.getUserId().equals(user.getId()))
-            throw new CustomApiException(HttpStatus.FORBIDDEN, "You can update only your own comment");
+            throw new CustomApiException(HttpStatus.FORBIDDEN, "Not your comment");
 
-        Update update = new Update().set("content", dto.getContent());
+        comment.setContent(dto.getContent());
+        mongoTemplate.save(comment);
 
-        FindAndModifyOptions opt = FindAndModifyOptions.options().returnNew(true);
-
-        NewsComment updated = mongoTemplate.findAndModify(cq, update, opt, NewsComment.class);
-
-        CommentResponseDto res = new CommentResponseDto();
-        res.setId(updated.getId());
-        res.setNewsId(updated.getNewsId());
-        res.setUserName(user.getUsername());
-        res.setContent(updated.getContent());
-        res.setCreatedAt(updated.getCreatedAt());
-        return res;
+        return new CommentResponseDto(
+                comment.getId(),
+                comment.getNewsId(),
+                user.getUsername(),
+                comment.getContent(),
+                comment.getCreatedAt()
+        );
     }
 }
 
