@@ -176,5 +176,15 @@ public class AuthController {
         return ResponseEntity.ok(new ApiResponseDto<>(true, "Comment updated successfully", updated));
     }
 
+    // ====================== Reporter Like Stats ======================
+
+    @GetMapping("/news/top-liked-reporters")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ApiResponseDto<List<ReporterLikeStatsDto>>> getTopLikedReporters() {
+        List<ReporterLikeStatsDto> stats = authService.getTopLikedReporters();
+        return ResponseEntity.ok(new ApiResponseDto<>(true, "Top liked reporters fetched", stats));
+    }
+
+
 }
 

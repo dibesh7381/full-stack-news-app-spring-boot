@@ -319,6 +319,7 @@ import NewsApp.com.example.NewsApp.exception.CustomApiException;
 import NewsApp.com.example.NewsApp.model.*;
 import NewsApp.com.example.NewsApp.security.JwtUtil;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.*;
 import org.springframework.data.mongodb.core.aggregation.*;
@@ -703,5 +704,40 @@ public class AuthService {
                 comment.getCreatedAt()
         );
     }
+
+    public List<ReporterLikeStatsDto> getTopLikedReporters() {
+
+        Aggregation agg = Aggregation.newAggregation(
+
+                Aggregation.addFields()
+                        .addField("newsIdStr")
+                        .withValue(ConvertOperators.ToString.toString("$_id"))
+                        .build(),
+
+                Aggregation.lookup("likes_dislikes", "newsIdStr", "newsId", "likes"),
+
+                Aggregation.unwind("likes", true),
+
+                Aggregation.match(Criteria.where("likes.action").is("LIKE")),
+
+                Aggregation.group("reporterId")
+                        .count().as("totalLikes"),
+
+                Aggregation.sort(Sort.by(Sort.Direction.DESC, "totalLikes")),
+
+                Aggregation.limit(5)   // <-- ⭐ LIMIT ADDED HERE
+        );
+
+        AggregationResults<ReporterLikeStatsDto> result =
+                mongoTemplate.aggregate(agg, "news", ReporterLikeStatsDto.class);
+
+        result.getMappedResults().forEach(stat -> {
+            User reporter = mongoTemplate.findById(stat.getReporterId(), User.class);
+            if (reporter != null) stat.setReporterName(reporter.getUsername());
+        });
+
+        return result.getMappedResults();
+    }
+
 }
 
