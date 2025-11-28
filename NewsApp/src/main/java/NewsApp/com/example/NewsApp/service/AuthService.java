@@ -739,5 +739,57 @@ public class AuthService {
         return result.getMappedResults();
     }
 
+    public List<NewsLikeStatsDto> getTop5NewsByReporter(String email) {
+
+        // 1️⃣ Reporter fetch
+        User reporter = mongoTemplate.findOne(
+                new Query(Criteria.where("email").is(email)), User.class);
+
+        if (reporter == null)
+            throw new CustomApiException(HttpStatus.NOT_FOUND, "User not found");
+
+        String reporterId = reporter.getId();
+
+        // 2️⃣ Aggregation pipeline
+        Aggregation agg = Aggregation.newAggregation(
+
+                // Only reporter ka news
+                Aggregation.match(Criteria.where("reporterId").is(reporterId)),
+
+                // Convert _id(ObjectId) → String
+                Aggregation.addFields()
+                        .addField("newsIdStr")
+                        .withValue(ConvertOperators.ToString.toString("$_id"))
+                        .build(),
+
+                // Lookup likes
+                Aggregation.lookup("likes_dislikes", "newsIdStr", "newsId", "likes"),
+
+                // Unwind likes array
+                Aggregation.unwind("likes", true),
+
+                // Only LIKE action
+                Aggregation.match(Criteria.where("likes.action").is("LIKE")),
+
+                // Group by news
+                Aggregation.group("newsIdStr")
+                        .first("title").as("title")
+                        .count().as("totalLikes"),
+
+                // Sort
+                Aggregation.sort(Sort.by(Sort.Direction.DESC, "totalLikes")),
+
+                // Limit 5
+                Aggregation.limit(5)
+        );
+
+        // Run aggregation
+        AggregationResults<NewsLikeStatsDto> result =
+                mongoTemplate.aggregate(agg, "news", NewsLikeStatsDto.class);
+
+        return result.getMappedResults();
+    }
+
+
 }
 

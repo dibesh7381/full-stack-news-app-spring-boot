@@ -185,6 +185,17 @@ public class AuthController {
         return ResponseEntity.ok(new ApiResponseDto<>(true, "Top liked reporters fetched", stats));
     }
 
+    // ====================== Reporter: Top 5 Liked News ======================
+
+    @GetMapping("/news/my-top-liked")
+    @PreAuthorize("hasAuthority('REPORTER')")
+    public ResponseEntity<ApiResponseDto<List<NewsLikeStatsDto>>> getMyTopLikedNews() {
+        String email = (String) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        List<NewsLikeStatsDto> stats = authService.getTop5NewsByReporter(email);
+        return ResponseEntity.ok(new ApiResponseDto<>(true, "Top 5 liked news fetched", stats));
+    }
+
+
 
 }
 
