@@ -197,13 +197,13 @@ public class AuthController {
 
     // ====================== Customer Total Likes ======================
 
-    @GetMapping("/customer/total-likes")
-    @PreAuthorize("hasAuthority('USER')")
-    public ResponseEntity<ApiResponseDto<CustomerTotalLikesDto>> getCustomerTotalLikes() {
-        String email = (String) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        CustomerTotalLikesDto dto = authService.getCustomerTotalLikes(email);
-        return ResponseEntity.ok(new ApiResponseDto<>(true, "Total likes given by user fetched successfully", dto));
-    }
+//    @GetMapping("/customer/total-likes")
+//    @PreAuthorize("hasAuthority('USER')")
+//    public ResponseEntity<ApiResponseDto<CustomerTotalLikesDto>> getCustomerTotalLikes() {
+//        String email = (String) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+//        CustomerTotalLikesDto dto = authService.getCustomerTotalLikes(email);
+//        return ResponseEntity.ok(new ApiResponseDto<>(true, "Total likes given by user fetched successfully", dto));
+//    }
 
 }
 
