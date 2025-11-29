@@ -789,5 +789,72 @@ public class AuthService {
 
         return result.getMappedResults();
     }
+
+    // ====================== CUSTOMER LIKE ANALYTICS ======================
+
+    public CustomerTotalLikesDto getCustomerTotalLikes(String email) {
+
+        // 1️⃣ Fetch the user based on email
+        User user = mongoTemplate.findOne(
+                new Query(Criteria.where("email").is(email)),
+                User.class
+        );
+
+        if (user == null) {
+            throw new CustomApiException(HttpStatus.NOT_FOUND, "User not found");
+        }
+
+        // 2️⃣ Count total LIKE actions of this user
+        Aggregation agg = Aggregation.newAggregation(
+                Aggregation.match(
+                        Criteria.where("userId").is(user.getId())
+                                .and("action").is("LIKE")
+                ),
+                Aggregation.group("userId")
+                        .count().as("totalLikes")
+        );
+
+        AggregationResults<CustomerTotalLikesDto> result =
+                mongoTemplate.aggregate(agg, "likes_dislikes", CustomerTotalLikesDto.class);
+
+        CustomerTotalLikesDto dto = result.getUniqueMappedResult();
+
+        // If user never liked anything
+        if (dto == null) {
+            dto = new CustomerTotalLikesDto();
+            dto.setTotalLikes(0);
+        }
+
+        // User details
+        dto.setUserId(user.getId());
+        dto.setUsername(user.getUsername());
+
+        // 3️⃣ Fetch all LIKE records
+        Query likeQuery = new Query(
+                Criteria.where("userId").is(user.getId())
+                        .and("action").is("LIKE")
+        );
+
+        List<LikeDislike> likedRecords = mongoTemplate.find(likeQuery, LikeDislike.class);
+
+        // 4️⃣ Convert to small DTO list (newsId + title only)
+        List<UserLikedItemDto> likedPosts = likedRecords.stream().map(record -> {
+
+            // Ab news delete hone par likes bhi delete honge — no null issue
+            News news = mongoTemplate.findById(record.getNewsId(), News.class);
+
+            UserLikedItemDto item = new UserLikedItemDto();
+            item.setNewsId(news.getId());
+            item.setTitle(news.getTitle());
+
+            return item;
+
+        }).collect(Collectors.toList());
+
+        dto.setLikedPosts(likedPosts);
+
+        return dto;
+    }
+
 }
 
